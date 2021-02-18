@@ -1,0 +1,23 @@
+name: branch
+
+on:
+  push:
+    branches:
+      - '**'
+      - '!main'
+  pull_request:
+    branches:
+      - 'main'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+      - name: Examine source code
+        run: go vet ./...
+      - name: Run tests
+        run: go test ./...
