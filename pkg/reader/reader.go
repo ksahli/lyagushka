@@ -1,6 +1,7 @@
 package reader
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -29,7 +30,7 @@ func (r Reader) Run(errs chan error) {
 	defer close(r.ressources)
 	log.Printf("reading %s ...", r.path)
 	if err := filepath.Walk(r.path, r.read); err != nil {
-		errs <- err
+		errs <- fmt.Errorf("reader error: %w", err)
 	}
 	log.Printf("reading complete")
 }
@@ -45,6 +46,11 @@ func (r Reader) read(path string, info os.FileInfo, err error) error {
 	if err != nil {
 		return err
 	}
+	p, err := filepath.Rel(r.path, ressource.Path)
+	if err != nil {
+		return err
+	}
+	ressource.Path = p
 	r.ressources <- ressource
 	return nil
 }

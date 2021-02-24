@@ -2,13 +2,13 @@ package reader_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"path/filepath"
 	"reflect"
 	"testing"
 
 	"github.com/ksahli/lyagushka/pkg/core"
 	"github.com/ksahli/lyagushka/pkg/reader"
-	"github.com/ksahli/lyagushka/pkg/ressources"
 )
 
 func TestRead(t *testing.T) {
@@ -28,7 +28,7 @@ func TestRead(t *testing.T) {
 		path := t.TempDir()
 		errs := make(chan error, 10)
 		expected := setup(path, 10)
-		write(t, expected)
+		write(t, path, expected)
 
 		reader := reader.New(path)
 		go reader.Run(errs)
@@ -52,7 +52,7 @@ func TestRead(t *testing.T) {
 func setup(dir string, number int) map[string]core.Ressource {
 	ressources := map[string]core.Ressource{}
 	for i := 0; i <= 10; i++ {
-		path := filepath.Join(dir, fmt.Sprintf("name-%d", i))
+		path := fmt.Sprintf("name-%d", i)
 		content := fmt.Sprintf("content-%d", i)
 		ressources[path] = core.Ressource{
 			Path:    path,
@@ -62,9 +62,10 @@ func setup(dir string, number int) map[string]core.Ressource {
 	return ressources
 }
 
-func write(t *testing.T, rs map[string]core.Ressource) {
+func write(t *testing.T, path string, rs map[string]core.Ressource) {
 	for _, ressource := range rs {
-		if err := ressources.Write(ressource); err != nil {
+		p := filepath.Join(path, ressource.Path)
+		if err := ioutil.WriteFile(p, []byte(ressource.Content), 0664); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -1,6 +1,9 @@
 package processor
 
 import (
+	"fmt"
+	"log"
+
 	"github.com/ksahli/lyagushka/pkg/core"
 )
 
@@ -28,10 +31,11 @@ func (p Processor) Ressources() chan core.Ressource {
 
 func (p Processor) Run(errs chan error) {
 	defer close(p.out)
+	log.Println("start processing ...")
 	for ressource := range p.in {
 		content, err := p.templates.Execute(ressource.Content)
 		if err != nil {
-			errs <- err
+			errs <- fmt.Errorf("processor error: %w", err)
 		} else {
 			p.out <- core.Ressource{
 				Path:    ressource.Path,
@@ -39,4 +43,5 @@ func (p Processor) Run(errs chan error) {
 			}
 		}
 	}
+	log.Println("processing done")
 }

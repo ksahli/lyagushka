@@ -1,6 +1,8 @@
 package writer
 
 import (
+	"fmt"
+	"log"
 	"path/filepath"
 
 	"github.com/ksahli/lyagushka/pkg/core"
@@ -23,12 +25,14 @@ func New(path string, in chan core.Ressource) Writer {
 
 func (w Writer) Run(errs chan error) {
 	defer close(w.done)
+	log.Println("start writing ...")
 	for ressource := range w.in {
 		ressource.Path = filepath.Join(w.path, ressource.Path)
 		if err := ressources.Write(ressource); err != nil {
-			errs <- err
+			errs <- fmt.Errorf("writer error: %w", err)
 		}
 	}
+	log.Println("writing done")
 	w.done <- true
 }
 
