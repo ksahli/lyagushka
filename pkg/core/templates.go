@@ -16,12 +16,13 @@ func (t Templates) base() (*template.Template, error) {
 	return template.New("base").Parse(content)
 }
 
-func (t Templates) Execute(content string) ([]byte, error) {
+func (t Templates) Execute(content []byte) ([]byte, error) {
 	base, err := t.base()
 	if err != nil {
 		return nil, err
 	}
-	tpl, err := base.Parse(content)
+	s := string(content)
+	tpl, err := base.Parse(s)
 	if err != nil {
 		return nil, err
 	}

@@ -10,7 +10,8 @@ import (
 func TestExecute(t *testing.T) {
 	t.Run("execute without base template", func(t *testing.T) {
 		templates := core.Templates{}
-		_, err := templates.Execute(`{{define "main"}}content{{end}}`)
+		content := []byte(`{{define "main"}}content{{end}}`)
+		_, err := templates.Execute(content)
 		if err == nil {
 			t.Fatal("want an error, got nothing")
 		}
@@ -22,7 +23,8 @@ func TestExecute(t *testing.T) {
 			"base": `{{define "base"}}base {{ block "main" .}}{{end}}{{ end }}`,
 		}
 
-		got, err := templates.Execute(`{{define "main"}}content{{end}}`)
+		content := []byte(`{{define "main"}}content{{end}}`)
+		got, err := templates.Execute(content)
 		if err != nil {
 			t.Fatal(err)
 		}
