@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/ksahli/lyagushka/cmd/clean"
 	"github.com/ksahli/lyagushka/cmd/generate"
 	"github.com/ksahli/lyagushka/cmd/initialize"
 )
@@ -23,6 +24,10 @@ func main() {
 		}
 	case "generate":
 		if err := generate.Run(wd); err != nil {
+			log.Fatal(err)
+		}
+	case "clean":
+		if err := clean.Run(wd); err != nil {
 			log.Fatal(err)
 		}
 	}
