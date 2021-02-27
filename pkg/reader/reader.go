@@ -2,7 +2,7 @@ package reader
 
 import (
 	"fmt"
-	"log"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -28,29 +28,41 @@ func (r Reader) Ressources() chan core.Ressource {
 
 func (r Reader) Run(errs chan error) {
 	defer close(r.ressources)
-	log.Printf("reading %s ...", r.path)
-	if err := filepath.Walk(r.path, r.read); err != nil {
+
+	if err := filepath.Walk(r.path, r.walk); err != nil {
 		errs <- fmt.Errorf("reader error: %w", err)
 	}
-	log.Printf("reading complete")
 }
 
-func (r Reader) read(path string, info os.FileInfo, err error) error {
+func (r Reader) walk(path string, info os.FileInfo, err error) error {
 	if err != nil {
 		return err
 	}
 	if info.IsDir() {
 		return nil
+	} else {
+		ressource, err := r.read(path)
+		if err != nil {
+			return err
+		}
+		r.ressources <- ressource
+		return nil
 	}
-	ressource, err := ressources.Read(path)
+}
+
+func (r Reader) read(path string) (core.Ressource, error) {
+	reader := ressources.Reader{
+		ReadFunc: ioutil.ReadFile,
+	}
+
+	ressource, err := reader.Read(path)
 	if err != nil {
-		return err
+		return core.Ressource{}, err
 	}
-	p, err := filepath.Rel(r.path, ressource.Path)
-	if err != nil {
-		return err
+
+	if err := ressource.Rel(r.path); err != nil {
+		return core.Ressource{}, err
 	}
-	ressource.Path = p
-	r.ressources <- ressource
-	return nil
+
+	return ressource, nil
 }

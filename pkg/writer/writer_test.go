@@ -3,6 +3,7 @@ package writer_test
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -13,7 +14,7 @@ import (
 )
 
 func TestWrite(t *testing.T) {
-	t.Run("test write to non existing path", func(t *testing.T) {
+	t.Run("send an error", func(t *testing.T) {
 		in, errs := make(chan core.Ressource, 10), make(chan error, 1)
 		writer := writer.New("non/exisiting/path", in)
 
@@ -30,70 +31,62 @@ func TestWrite(t *testing.T) {
 		}
 	})
 
-	t.Run("test write ressources", func(t *testing.T) {
-		dir := t.TempDir()
+	t.Run("write ressources", func(t *testing.T) {
+		path := t.TempDir()
 
 		in, errs := make(chan core.Ressource, 10), make(chan error, 1)
-		writer := writer.New(dir, in)
+		writer := writer.New(path, in)
 
 		go writer.Run(errs)
-		want := setup(dir, 10)
-		for _, ressource := range want {
-			emit(t, dir, ressource, in)
+
+		want := make(map[string]core.Ressource)
+		for i := 0; i < 10; i++ {
+			name := fmt.Sprintf("name-%d", i)
+			text := fmt.Sprintf("text-%d", i)
+
+			fullpath := filepath.Join(path, name)
+			content := []byte(text)
+
+			in <- core.Ressource{
+				Path:    name,
+				Content: content,
+			}
+
+			want[name] = core.Ressource{
+				Path:    fullpath,
+				Content: content,
+			}
 		}
 
 		close(in)
 		<-writer.Done()
 
-		got := read(t, dir)
+		got := make(map[string]core.Ressource)
+		filepath.Walk(path, func(path string, file os.FileInfo, err error) error {
+			if err != nil {
+				t.Fatal(err)
+			}
+			if file.IsDir() {
+				return nil
+			}
+			reader := ressources.Reader{
+				ReadFunc: ioutil.ReadFile,
+			}
+			ressource, err := reader.Read(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got[file.Name()] = ressource
+			return nil
+		})
 
 		if !reflect.DeepEqual(want, got) {
 			t.Fatalf("want %v \n got %v", want, got)
 		}
 
 		close(errs)
-		err := <-errs
-		if err != nil {
+		if err := <-errs; err != nil {
 			t.Fatal(err)
 		}
 	})
-}
-
-func setup(dir string, number int) map[string]core.Ressource {
-	ressources := map[string]core.Ressource{}
-	for i := 0; i < 10; i++ {
-		name, content := fmt.Sprintf("name-%d", i), fmt.Sprintf("content %d", i)
-		path := filepath.Join(dir, name)
-		ressources[name] = core.Ressource{
-			Path:    path,
-			Content: []byte(content),
-		}
-	}
-	return ressources
-}
-
-func emit(t *testing.T, dir string, ressource core.Ressource, in chan core.Ressource) {
-	path, err := filepath.Rel(dir, ressource.Path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ressource.Path = path
-	in <- ressource
-}
-
-func read(t *testing.T, dir string) map[string]core.Ressource {
-	files, err := ioutil.ReadDir(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	rs := map[string]core.Ressource{}
-	for _, file := range files {
-		path := filepath.Join(dir, file.Name())
-		ressource, err := ressources.Read(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		rs[file.Name()] = ressource
-	}
-	return rs
 }
