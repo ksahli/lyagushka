@@ -1,7 +1,9 @@
 package ressources_test
 
 import (
+	"errors"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -10,20 +12,67 @@ import (
 	"github.com/ksahli/lyagushka/pkg/ressources"
 )
 
-func TestLoad(t *testing.T) {
-	dir := t.TempDir()
+var (
+	path    = "ressource"
+	content = []byte("content")
+)
 
-	t.Run("read from non existing path", func(t *testing.T) {
-		if _, err := ressources.Read("non_existing/ressource"); err == nil {
+func TestRead(t *testing.T) {
+	t.Run("returns an error", func(t *testing.T) {
+		readFunc := func(path string) ([]byte, error) {
+			return nil, errors.New("fail")
+		}
+
+		reader := ressources.Reader{
+			ReadFunc: readFunc,
+		}
+
+		if _, err := reader.Read("something"); err == nil {
 			t.Fatal("want an error, got nothing")
 		}
 	})
 
-	t.Run("read ressource", func(t *testing.T) {
-		want := setup(dir, "content")
-		save(t, want.Path, want.Content)
+	t.Run("reads a ressource", func(t *testing.T) {
+		want := core.Ressource{
+			Path:    path,
+			Content: content,
+		}
 
-		got, err := ressources.Read(want.Path)
+		readFunc := func(path string) ([]byte, error) {
+			return content, nil
+		}
+
+		reader := ressources.Reader{
+			ReadFunc: readFunc,
+		}
+
+		got, err := reader.Read(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !reflect.DeepEqual(want, got) {
+			t.Fatalf("want %v, got %v", want, got)
+		}
+	})
+
+	t.Run("reads a ressource from filesystem", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, path)
+		want := core.Ressource{
+			Path:    path,
+			Content: content,
+		}
+
+		if err := ioutil.WriteFile(path, content, 0664); err != nil {
+			t.Fatal(err)
+		}
+
+		reader := ressources.Reader{
+			ReadFunc: ioutil.ReadFile,
+		}
+
+		got, err := reader.Read(path)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -35,50 +84,72 @@ func TestLoad(t *testing.T) {
 }
 
 func TestWrite(t *testing.T) {
-	dir := t.TempDir()
+	t.Run("returns an error", func(t *testing.T) {
+		writerFunc := func(string, []byte, os.FileMode) error {
+			return errors.New("fail")
+		}
 
-	t.Run("write to non existing path", func(t *testing.T) {
-		ressource := setup("non_existing/directory", "content")
-		if err := ressources.Write(ressource); err == nil {
+		writer := ressources.Writer{
+			WriteFunc: writerFunc,
+		}
+
+		ressource := core.Ressource{
+			Path:    path,
+			Content: content,
+		}
+
+		if err := writer.Write(ressource); err == nil {
 			t.Fatal("want an error, got nothing")
 		}
 	})
 
-	t.Run("write ressource", func(t *testing.T) {
-		want := setup(dir, "content")
+	t.Run("writes a ressource", func(t *testing.T) {
+		want := core.Ressource{
+			Path:    path,
+			Content: content,
+		}
 
-		if err := ressources.Write(want); err != nil {
+		writerFunc := func(string, []byte, os.FileMode) error {
+			return nil
+		}
+
+		writer := ressources.Writer{
+			WriteFunc: writerFunc,
+		}
+
+		if err := writer.Write(want); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("writes a ressource to filesystem", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, path)
+		want := core.Ressource{
+			Path:    path,
+			Content: content,
+		}
+
+		writer := ressources.Writer{
+			WriteFunc: ioutil.WriteFile,
+		}
+
+		if err := writer.Write(want); err != nil {
 			t.Fatal(err)
 		}
 
-		got := load(t, want.Path)
-		if !reflect.DeepEqual(got, want) {
+		content, err := ioutil.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		got := core.Ressource{
+			Path:    path,
+			Content: content,
+		}
+
+		if !reflect.DeepEqual(want, got) {
 			t.Fatalf("want %v, got %v", want, got)
 		}
 	})
-}
-
-func setup(dir, content string) core.Ressource {
-	path := filepath.Join(dir, "ressource")
-	return core.Ressource{
-		Path:    path,
-		Content: []byte(content),
-	}
-}
-
-func save(t *testing.T, path string, content []byte) {
-	if err := ioutil.WriteFile(path, content, 0644); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func load(t *testing.T, path string) core.Ressource {
-	content, err := ioutil.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return core.Ressource{
-		Path:    path,
-		Content: content,
-	}
 }

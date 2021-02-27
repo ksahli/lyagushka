@@ -1,14 +1,19 @@
 package ressources
 
 import (
-	"io/ioutil"
+	"os"
 
 	"github.com/ksahli/lyagushka/pkg/core"
 )
 
-// Reads a ressource from file system
-func Read(path string) (core.Ressource, error) {
-	content, err := ioutil.ReadFile(path)
+type ReadFunc func(string) ([]byte, error)
+
+type Reader struct {
+	ReadFunc
+}
+
+func (r Reader) Read(path string) (core.Ressource, error) {
+	content, err := r.ReadFunc(path)
 	if err != nil {
 		return core.Ressource{}, err
 	}
@@ -19,8 +24,13 @@ func Read(path string) (core.Ressource, error) {
 	return ressource, nil
 }
 
-// Writes a ressource to file system
-func Write(ressource core.Ressource) error {
+type WriteFunc func(string, []byte, os.FileMode) error
+
+type Writer struct {
+	WriteFunc
+}
+
+func (w Writer) Write(ressource core.Ressource) error {
 	path, content := ressource.Path, ressource.Content
-	return ioutil.WriteFile(path, content, 0664)
+	return w.WriteFunc(path, content, 0664)
 }

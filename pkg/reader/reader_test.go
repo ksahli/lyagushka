@@ -12,9 +12,9 @@ import (
 )
 
 func TestRead(t *testing.T) {
-	t.Run("read ressources from non exisiting path", func(t *testing.T) {
+	t.Run("send en errors", func(t *testing.T) {
 		errs := make(chan error)
-		reader := reader.New("non/existing/path")
+		reader := reader.New("no/path")
 
 		go reader.Run(errs)
 
@@ -24,22 +24,39 @@ func TestRead(t *testing.T) {
 		}
 	})
 
-	t.Run("read ressources", func(t *testing.T) {
+	t.Run("send ressources", func(t *testing.T) {
 		path := t.TempDir()
-		errs := make(chan error, 10)
-		expected := setup(path, 10)
-		write(t, path, expected)
 
-		reader := reader.New(path)
-		go reader.Run(errs)
+		want := make(map[string]core.Ressource)
+		for i := 0; i < 10; i++ {
+			name := fmt.Sprintf("name-%d", i)
+			text := fmt.Sprintf("text-%d", i)
 
-		result := map[string]core.Ressource{}
-		for ressource := range reader.Ressources() {
-			result[ressource.Path] = ressource
+			fullpath := filepath.Join(path, name)
+			content := []byte(text)
+
+			if err := ioutil.WriteFile(fullpath, content, 0664); err != nil {
+				t.Fatal(err)
+			}
+
+			want[name] = core.Ressource{
+				Path:    name,
+				Content: content,
+			}
 		}
 
-		if !reflect.DeepEqual(expected, result) {
-			t.Fatalf("want %v, got %v", expected, result)
+		reader := reader.New(path)
+		errs := make(chan error, 10)
+
+		go reader.Run(errs)
+
+		got := make(map[string]core.Ressource)
+		for ressource := range reader.Ressources() {
+			got[ressource.Path] = ressource
+		}
+
+		if !reflect.DeepEqual(want, got) {
+			t.Fatalf("want %v, got %v", want, got)
 		}
 
 		close(errs)
@@ -47,26 +64,4 @@ func TestRead(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-}
-
-func setup(dir string, number int) map[string]core.Ressource {
-	ressources := map[string]core.Ressource{}
-	for i := 0; i <= 10; i++ {
-		path := fmt.Sprintf("name-%d", i)
-		content := fmt.Sprintf("content-%d", i)
-		ressources[path] = core.Ressource{
-			Path:    path,
-			Content: []byte(content),
-		}
-	}
-	return ressources
-}
-
-func write(t *testing.T, path string, rs map[string]core.Ressource) {
-	for _, ressource := range rs {
-		p := filepath.Join(path, ressource.Path)
-		if err := ioutil.WriteFile(p, []byte(ressource.Content), 0664); err != nil {
-			t.Fatal(err)
-		}
-	}
 }

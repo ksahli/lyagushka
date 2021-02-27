@@ -33,7 +33,7 @@ func TestRun(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		tplBasePath := filepath.Join(dir, "tpl", "base.html" )
+		tplBasePath := filepath.Join(dir, "tpl", "base.html")
 		if _, err := os.Open(tplBasePath); err != nil {
 			t.Fatal(err)
 		}
